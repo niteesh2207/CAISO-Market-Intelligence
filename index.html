@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAISO Market Intelligence</title>
+<style>
+:root{--bg:#eef3f7;--paper:#fff;--ink:#203247;--muted:#728190;--line:#e1e8ed;--blue:#2d7ff9;--green:#1f9f73;--amber:#d79a27}
+*{box-sizing:border-box}body{margin:0;padding:18px;background:var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
+.app{max-width:1080px;margin:auto;background:white;border:1px solid #dce4ea;border-radius:24px;min-height:calc(100vh - 36px);overflow:hidden}
+header{padding:19px 23px;border-bottom:1px solid #edf1f4;display:flex;justify-content:space-between;gap:12px;align-items:center}
+small{font-size:8px;text-transform:uppercase;letter-spacing:.14em;color:#91a0ad;font-weight:900}h1{font-size:20px;margin:4px 0 2px}p{color:var(--muted)}
+.badge{font-size:8px;padding:7px 10px;border-radius:999px;background:#fff5df;border:1px solid #efdcb3;color:#805e1d;font-weight:900}
+.hero{padding:34px 24px 20px;background:linear-gradient(#fbfdff,#f8fafc);border-bottom:1px solid #edf1f4}.search{max-width:850px;margin:auto;display:flex;gap:8px;border:1px solid #dce5eb;background:#fff;padding:5px;border-radius:16px}.search input{flex:1;border:0;outline:0;padding:10px;font-size:13px}.search button{border:0;border-radius:11px;background:linear-gradient(135deg,#2d7ff9,#665df6);color:#fff;font-size:9px;font-weight:900;padding:11px 16px;cursor:pointer}
+.content{max-width:850px;margin:auto;padding:20px 0 34px}.call{border:1px solid #e1e8ed;border-radius:15px;padding:14px 15px;background:#fff;margin-bottom:10px}.call h2{font-size:13px;margin:0 0 7px}.call p{font-size:9px;line-height:1.5;margin:0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.metric{border:1px solid #e1e8ed;border-radius:12px;padding:11px;background:#fafcfd}.metric span{display:block;font-size:7px;color:#8a96a2;text-transform:uppercase;font-weight:900}.metric b{display:block;font-size:11px;margin-top:4px}
+.answer{display:none;border:1px solid #dfe6ec;border-radius:15px;margin-top:12px;overflow:hidden}.ahead{padding:11px 12px;border-bottom:1px solid #edf1f4;font-size:9px;font-weight:900}.abody{padding:13px 14px;font-size:9.5px;line-height:1.55;color:#506271}.warn{margin-top:9px;padding:9px 10px;background:#fffaf0;border:1px solid #efdfb6;border-radius:9px;color:#715b2c;font-size:8px}
+footer{border-top:1px solid #edf1f4;background:#fafcfd;padding:10px 16px;font-size:7.5px;color:#7e8b96;text-align:center}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.search button{width:100%}.content{padding:16px}.hero{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<div><small>CAISO Intelligence Platform · Project 3</small><h1>CAISO Market Intelligence</h1><p style="font-size:9px;margin:0">Current-market research assistant for CAISO + Western power markets</p></div>
+<div class="badge">GITHUB PAGES PREVIEW</div>
+</header>
+
+<section class="hero">
+<div class="search">
+<input id="q" value="Did Diablo Canyon ramp down today?" placeholder="Ask a CAISO market question">
+<button id="ask">SEARCH & ANSWER →</button>
+</div>
+</section>
+
+<main class="content">
+<div class="call">
+<h2>Production research architecture</h2>
+<p>The full application searches current primary sources at question time, checks freshness and conflicting evidence, and returns a concise market answer with clickable citations.</p>
+</div>
+
+<div class="grid">
+<div class="metric"><span>Primary market data</span><b>CAISO / OASIS</b></div>
+<div class="metric"><span>Western operations</span><b>BPA / Utilities</b></div>
+<div class="metric"><span>Generator / regulation</span><b>NRC / FERC / EIA</b></div>
+</div>
+
+<div class="answer" id="answer">
+<div class="ahead">Portfolio preview — live backend required</div>
+<div class="abody" id="answerBody"></div>
+</div>
+
+<div class="call" style="margin-top:12px">
+<h2>Why this Pages site is a preview</h2>
+<p>GitHub Pages only publishes static HTML/CSS/JavaScript. The real chatbot uses a Python FastAPI backend and a server-side OpenAI key, so it must run in Codespaces or a production backend host. The repository contains both.</p>
+</div>
+</main>
+<footer>Baseline verified 07/26/2026 · No premium-feed access is claimed unless an authenticated licensed connector is configured.</footer>
+</div>
+<script>
+const q=document.getElementById('q'), a=document.getElementById('answer'), b=document.getElementById('answerBody');
+document.getElementById('ask').addEventListener('click',()=>{
+  a.style.display='block';
+  b.innerHTML='<b>Live research is intentionally disabled on GitHub Pages.</b><br><br>Open the repository in GitHub Codespaces to run the actual research backend. The production app then searches current sources for every question instead of returning canned answers.<div class="warn">Security rule: never place OPENAI_API_KEY or licensed market-data credentials in browser JavaScript.</div>';
+});
+q.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('ask').click()});
+</script>
+</body>
+</html>
