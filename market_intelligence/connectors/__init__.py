@@ -1,0 +1,1 @@
+"""Structured market-data connectors."""
