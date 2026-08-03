@@ -62,48 +62,63 @@ def classify_intent(question: str) -> str:
     q = question.lower()
 
     if any(x in q for x in (
-        "np15", "np-15", "sp15", "sp-15", "lmp", "price", "settle",
-        "settlement", "day-ahead", "day ahead", "real-time", "real time",
+        "np15", "np-15", "sp15", "sp-15",
+        "lmp", "price", "settle", "settlement",
+        "day-ahead", "day ahead",
+        "real-time", "real time",
     )):
         return "price"
 
     if any(x in q for x in (
-        "diablo", "generator", "unit ", "ramp down", "ramp up", "offline",
+        "diablo", "generator", "unit ",
+        "ramp down", "ramp up", "offline",
         "derate", "nuclear", "plant output",
     )):
         return "generation"
 
+    # Evaluate gas before grid. Otherwise "pipeline"
+    # can be incorrectly captured by a generic "line" rule.
     if any(x in q for x in (
-        "constraint", "congestion", "transmission", "outage", "line",
-        "transformer", "path 26", "path 15", "flowgate",
-    )):
-        return "grid"
-
-    if any(x in q for x in (
-        "bpa", "pacw", "pace", "mid-c", "mid c", "malin", "palo verde",
-        "northwest", "pnw", "western", "edam transfer",
-    )):
-        return "west"
-
-    if any(x in q for x in (
-        "socalgas", "so cal gas", "pg&e citygate", "pge citygate",
-        "gas price", "citygate", "pipeline", "ofo", "storage gas",
+        "socalgas", "so cal gas",
+        "pg&e citygate", "pge citygate",
+        "natural gas", "gas price",
+        "henry hub", "citygate",
+        "pipeline", "freeport lng",
+        "lng", "ofo", "storage gas",
     )):
         return "gas"
 
     if any(x in q for x in (
-        "weather", "temperature", "heat", "cloud", "irradiance", "wind forecast",
+        "constraint", "congestion",
+        "transmission", "outage",
+        "transmission line", "power line",
+        "line outage", "transformer",
+        "path 26", "path 15", "flowgate",
+    )):
+        return "grid"
+
+    if any(x in q for x in (
+        "bpa", "pacw", "pace",
+        "mid-c", "mid c", "malin",
+        "palo verde", "northwest",
+        "pnw", "western", "edam transfer",
+    )):
+        return "west"
+
+    if any(x in q for x in (
+        "weather", "temperature", "heat",
+        "cloud", "irradiance", "wind forecast",
     )):
         return "weather"
 
     if any(x in q for x in (
-        "ferc", "cpuc", "cec", "tariff", "filing", "regulatory", "rule",
+        "ferc", "cpuc", "cec",
+        "tariff", "filing",
+        "regulatory", "rule",
     )):
         return "regulatory"
 
     return "general"
-
-
 def domains_for_intent(intent: str) -> list[str]:
     # Responses web_search supports up to 100 allowed domains.
     domains = INTENT_DOMAINS.get(intent, COMMON_AUTHORITIES)
