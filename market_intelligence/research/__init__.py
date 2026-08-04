@@ -1,1 +1,1 @@
-"""Source policy, confidence and research orchestration."""
+"""Windows-native universal energy research components."""
