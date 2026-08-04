@@ -15,11 +15,34 @@ from pydantic import BaseModel, Field
 from prompting import build_research_prompt
 from source_registry import classify_intent, domains_for_intent
 
+from market_intelligence.api.adapter import (
+    universal_answer_to_response,
+)
+from market_intelligence.api.models import (
+    EnergyCapabilityResponse,
+    EnergySearchRequest,
+    EnergySearchResponse,
+    EnergyStatusResponse,
+)
+from market_intelligence.service.universal_orchestrator import (
+    UniversalResearchOrchestrator,
+)
+
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="CAISO Market Intelligence", version="3.0.0")
+app = FastAPI(
+    title="Energy Market Intelligence",
+    version="4.0.0",
+    description=(
+        "Trust-first energy-market search API using "
+        "official structured data and controlled "
+        "web-research fallback."
+    ),
+)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+_universal_orchestrator = UniversalResearchOrchestrator()
 
 
 class AskRequest(BaseModel):
@@ -182,3 +205,126 @@ def ask(req: AskRequest) -> AskResponse:
         sources=sources,
         used_fallback_search=used_fallback,
     )
+
+
+@app.get(
+    "/api/status",
+    response_model=EnergyStatusResponse,
+)
+def api_status() -> EnergyStatusResponse:
+    return EnergyStatusResponse(
+        status="ok",
+        service="Energy Market Intelligence",
+        version="4.0.0",
+        universal_orchestrator=True,
+        eia_cache_available=(
+            BASE_DIR
+            / ".cache"
+            / "eia"
+            / "EBA.zip"
+        ).exists(),
+        openai_configured=bool(
+            os.getenv("OPENAI_API_KEY")
+        ),
+    )
+
+
+@app.get(
+    "/api/capabilities",
+    response_model=list[EnergyCapabilityResponse],
+)
+def api_capabilities() -> list[
+    EnergyCapabilityResponse
+]:
+    return [
+        EnergyCapabilityResponse(
+            capability="CAISO market prices",
+            status="live",
+            controlling_source="CAISO OASIS",
+            examples=[
+                (
+                    "What were NP-15 day-ahead "
+                    "prices yesterday?"
+                ),
+            ],
+        ),
+        EnergyCapabilityResponse(
+            capability="ISO operating data",
+            status="live_with_local_cache",
+            controlling_source="EIA Form EIA-930",
+            examples=[
+                "What is CAISO demand right now?",
+                "What is ERCOT demand?",
+                "What is PJM net generation?",
+            ],
+        ),
+        EnergyCapabilityResponse(
+            capability="Nuclear reactor status",
+            status="live",
+            controlling_source="U.S. NRC",
+            examples=[
+                (
+                    "Is Diablo Canyon running at "
+                    "full capacity?"
+                ),
+            ],
+        ),
+        EnergyCapabilityResponse(
+            capability="Universal energy research",
+            status="research_fallback",
+            controlling_source=(
+                "Approved official and high-authority "
+                "web sources"
+            ),
+            examples=[
+                (
+                    "Why did Henry Hub natural-gas "
+                    "prices rise?"
+                ),
+                (
+                    "What new FERC orders affect "
+                    "transmission planning?"
+                ),
+            ],
+        ),
+    ]
+
+
+@app.post(
+    "/api/search",
+    response_model=EnergySearchResponse,
+)
+def energy_search(
+    req: EnergySearchRequest,
+) -> EnergySearchResponse:
+    question = req.question.strip()
+
+    try:
+        result = _universal_orchestrator.answer(
+            question
+        )
+
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "EIA_CACHE_NOT_AVAILABLE",
+                "message": str(exc),
+                "remediation": (
+                    "Refresh the official EIA EBA "
+                    "cache before requesting operating "
+                    "data."
+                ),
+            },
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "STRUCTURED_EXECUTOR_FAILURE",
+                "message": str(exc),
+            },
+        ) from exc
+
+    return universal_answer_to_response(result)
