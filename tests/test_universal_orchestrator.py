@@ -3,6 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from market_intelligence.research.models import (
+    ResearchAnswer,
+)
 from market_intelligence.retrieval.models import (
     RetrievedRecord,
     RetrievalMethod,
@@ -50,6 +53,35 @@ def caiso_record(
             "has_timezone": True,
         },
     )
+
+
+class FakeResearchAgent:
+    def __init__(self):
+        self.questions = []
+
+    def answer(self, question):
+        self.questions.append(question)
+
+        return ResearchAnswer(
+            status="research_unavailable",
+            answer=(
+                "The research pipeline could not "
+                "verify an answer."
+            ),
+            explanation=(
+                "No usable source pages were returned."
+            ),
+            confidence="insufficient",
+            as_of="2026-08-04T19:00:00+00:00",
+            sources=(),
+            limitations=(
+                "Deterministic test research "
+                "provider unavailable.",
+            ),
+            evidence={
+                "retrieved_sources": 0,
+            },
+        )
 
 
 class FakeCaisoAgent:
@@ -219,20 +251,25 @@ def test_nuclear_question_dispatches_to_nuclear_agent():
     assert result.domain == EnergyDomain.NUCLEAR
 
 
-def test_unimplemented_domain_returns_research_plan():
+def test_unimplemented_domain_returns_safe_research_hold():
+    research = FakeResearchAgent()
+
     orchestrator = UniversalResearchOrchestrator(
         caiso_agent=FakeCaisoAgent(),
         nuclear_agent=FakeNuclearAgent(),
+        research_agent=research,
     )
 
     result = orchestrator.answer(
         "Why did Henry Hub natural gas prices rise?"
     )
 
-    assert result.status == (
-        UniversalAnswerStatus.RESEARCH_REQUIRED
-    )
+    assert research.questions == [
+        "Why did Henry Hub natural gas prices rise?"
+    ]
+    assert result.status == UniversalAnswerStatus.HELD
     assert result.domain == EnergyDomain.NATURAL_GAS
+    assert result.confidence == "insufficient"
     assert result.evidence_payload[
         "planned_providers"
     ]
@@ -242,22 +279,30 @@ def test_unimplemented_domain_returns_research_plan():
             "planned_providers"
         ]
     }
+    assert result.evidence_payload[
+        "retrieved_sources"
+    ] == 0
 
 
-def test_weather_question_returns_multi_source_plan():
+def test_weather_question_returns_safe_multi_source_hold():
+    research = FakeResearchAgent()
+
     orchestrator = UniversalResearchOrchestrator(
         caiso_agent=FakeCaisoAgent(),
         nuclear_agent=FakeNuclearAgent(),
+        research_agent=research,
     )
 
     result = orchestrator.answer(
         "Will tomorrow's Texas heat affect ERCOT demand?"
     )
 
-    assert result.status == (
-        UniversalAnswerStatus.RESEARCH_REQUIRED
-    )
+    assert research.questions == [
+        "Will tomorrow's Texas heat affect ERCOT demand?"
+    ]
+    assert result.status == UniversalAnswerStatus.HELD
     assert result.domain == EnergyDomain.WEATHER
+    assert result.confidence == "insufficient"
 
     providers = {
         item["provider_id"]
@@ -268,6 +313,9 @@ def test_weather_question_returns_multi_source_plan():
 
     assert "noaa_nws" in providers
     assert "iso_rto_operational_data" in providers
+    assert result.evidence_payload[
+        "retrieved_sources"
+    ] == 0
 
 
 def test_non_energy_question_requests_clarification():
