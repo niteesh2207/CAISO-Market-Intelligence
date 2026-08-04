@@ -176,4 +176,3 @@ def test_gdelt_retries_after_rate_limit(monkeypatch):
 
     assert results == []
     assert calls["count"] == 2
-
