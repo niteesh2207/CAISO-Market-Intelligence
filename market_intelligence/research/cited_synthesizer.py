@@ -70,6 +70,79 @@ class CitedResearchAnswer:
     sources: tuple[CitedSource, ...]
     limitations: tuple[str, ...]
     evidence_summary: dict[str, Any]
+    question: str = ""
+
+    def validate(self) -> None:
+        if self.status not in {
+            "answered",
+            "held",
+        }:
+            raise ValueError(
+                "Invalid cited-answer status."
+            )
+
+        if not self.question.strip():
+            raise ValueError(
+                "The original question is missing."
+            )
+
+        if self.status == "held":
+            return
+
+        if not self.direct_answer.strip():
+            raise ValueError(
+                "Answered responses require "
+                "a direct answer."
+            )
+
+        if not self.explanation.strip():
+            raise ValueError(
+                "Answered responses require "
+                "an explanation."
+            )
+
+        if not self.claims:
+            raise ValueError(
+                "Answered responses require "
+                "at least one cited claim."
+            )
+
+        if not self.sources:
+            raise ValueError(
+                "Answered responses require "
+                "at least one source."
+            )
+
+        valid_source_ids = {
+            source.source_id
+            for source in self.sources
+        }
+
+        for claim in self.claims:
+            if not claim.text.strip():
+                raise ValueError(
+                    "Claim text cannot be blank."
+                )
+
+            if (
+                claim.claim_type == "fact"
+                and not claim.source_ids
+            ):
+                raise ValueError(
+                    "Every factual claim requires "
+                    "at least one source ID."
+                )
+
+            unknown_ids = (
+                set(claim.source_ids)
+                - valid_source_ids
+            )
+
+            if unknown_ids:
+                raise ValueError(
+                    "Claim references unknown "
+                    f"source IDs: {unknown_ids}"
+                )
 
 
 ANSWER_SCHEMA: dict[str, Any] = {
@@ -235,6 +308,7 @@ class OllamaCitedSynthesizer:
 
         return CitedResearchAnswer(
             status="held",
+            question=packet.question,
             direct_answer=(
                 "The available verified evidence "
                 "is not sufficient to provide a "
@@ -463,6 +537,7 @@ class OllamaCitedSynthesizer:
 
         return CitedResearchAnswer(
             status="answered",
+            question=packet.question,
             direct_answer=str(
                 result["direct_answer"]
             ).strip(),
