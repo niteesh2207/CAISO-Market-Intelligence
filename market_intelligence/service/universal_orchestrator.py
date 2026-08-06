@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+import os
 import re
 from typing import Any, Protocol
 
@@ -57,6 +58,11 @@ class NuclearAgentProtocol(Protocol):
 
 
 class OperatingDataAgentProtocol(Protocol):
+    def answer(self, question: str) -> Any:
+        ...
+
+
+class ResearchAgentProtocol(Protocol):
     def answer(self, question: str) -> Any:
         ...
 
@@ -231,12 +237,16 @@ class UniversalResearchOrchestrator:
         operating_data_agent: (
             OperatingDataAgentProtocol | None
         ) = None,
+        research_agent: (
+            ResearchAgentProtocol | None
+        ) = None,
     ) -> None:
         self._caiso_agent = caiso_agent
         self._nuclear_agent = nuclear_agent
         self._operating_data_agent = (
             operating_data_agent
         )
+        self._research_agent = research_agent
 
     @property
     def caiso_agent(self) -> CaisoAgentProtocol:
@@ -270,6 +280,42 @@ class UniversalResearchOrchestrator:
             )
 
         return self._operating_data_agent
+
+    @property
+    def research_agent(
+        self,
+    ) -> ResearchAgentProtocol:
+        if self._research_agent is None:
+            from market_intelligence.research.free_research_agent import (
+                FreeResearchAgent,
+            )
+            from market_intelligence.research.gdelt_client import (
+                GdeltClient,
+            )
+            from market_intelligence.research.ollama_client import (
+                OllamaClient,
+            )
+            from market_intelligence.research.page_fetcher import (
+                PageFetcher,
+            )
+
+            model = os.getenv(
+                "OLLAMA_MODEL",
+                "gemma3:4b",
+            ).strip()
+
+            if not model:
+                model = "gemma3:4b"
+
+            self._research_agent = FreeResearchAgent(
+                gdelt=GdeltClient(),
+                fetcher=PageFetcher(),
+                ollama=OllamaClient(
+                    model=model,
+                ),
+            )
+
+        return self._research_agent
 
     def answer(
         self,
@@ -340,40 +386,186 @@ class UniversalResearchOrchestrator:
                 route,
             )
 
-        return UniversalAnswer(
-            question=cleaned,
-            status=(
-                UniversalAnswerStatus
-                .RESEARCH_REQUIRED
-            ),
-            domain=route.domain,
-            direct_answer=(
-                "The question was classified successfully, "
-                "but its live source executor has not yet "
-                "been connected."
-            ),
-            simple_explanation=(
-                _research_plan_explanation(route)
-            ),
-            confidence="pending_research",
-            limitations=(
-                "No validated live executor is currently "
-                "registered for this route.",
-            ),
-            route=route,
-            evidence_payload={
+        return self._answer_research(
+            cleaned,
+            route,
+        )
+
+    def _answer_research(
+        self,
+        question: str,
+        route: UniversalEnergyRoute,
+    ) -> UniversalAnswer:
+        try:
+            result = self.research_agent.answer(
+                question
+            )
+        except Exception as exc:
+            return UniversalAnswer(
+                question=question,
+                status=UniversalAnswerStatus.HELD,
+                domain=route.domain,
+                direct_answer=(
+                    "The research answer could not be "
+                    "completed from verified evidence."
+                ),
+                simple_explanation=(
+                    "The question was classified as an "
+                    "energy question, but the free research "
+                    "pipeline encountered a retrieval or "
+                    "synthesis failure."
+                ),
+                confidence="insufficient",
+                limitations=(
+                    f"Research pipeline failure: "
+                    f"{type(exc).__name__}: {exc}",
+                ),
+                route=route,
+                evidence_payload={
+                    "planned_providers": [
+                        provider.provider_id
+                        for provider in route.providers
+                    ],
+                    "research_exception": (
+                        type(exc).__name__
+                    ),
+                },
+            )
+
+        result_status = str(
+            getattr(
+                getattr(result, "status", None),
+                "value",
+                getattr(result, "status", ""),
+            )
+        )
+
+        sources = tuple(
+            UniversalSource(
+                title=str(source.title),
+                url=str(source.url),
+                provider_id=str(
+                    source.provider
+                ),
+                is_primary=bool(
+                    source.primary
+                ),
+                source_role=str(
+                    getattr(
+                        getattr(
+                            source,
+                            "source_tier",
+                            "",
+                        ),
+                        "value",
+                        getattr(
+                            source,
+                            "source_tier",
+                            "supporting",
+                        ),
+                    )
+                ),
+            )
+            for source in getattr(
+                result,
+                "sources",
+                (),
+            )
+        )
+
+        evidence_payload = dict(
+            getattr(
+                result,
+                "evidence",
+                {},
+            )
+        )
+
+        evidence_payload.update(
+            {
+                "research_as_of": str(
+                    getattr(
+                        result,
+                        "as_of",
+                        "",
+                    )
+                ),
                 "planned_providers": [
                     {
-                        "provider_id": provider.provider_id,
-                        "priority": provider.priority,
-                        "source_role": provider.source_role,
+                        "provider_id": (
+                            provider.provider_id
+                        ),
+                        "priority": (
+                            provider.priority
+                        ),
+                        "source_role": (
+                            provider.source_role
+                        ),
                         "retrieval_modes": list(
                             provider.retrieval_modes
                         ),
                     }
                     for provider in route.providers
                 ],
-            },
+            }
+        )
+
+        if result_status == "answered":
+            return UniversalAnswer(
+                question=question,
+                status=UniversalAnswerStatus.ANSWERED,
+                domain=route.domain,
+                direct_answer=str(
+                    result.answer
+                ),
+                simple_explanation=str(
+                    result.explanation
+                ),
+                confidence=str(
+                    result.confidence
+                ),
+                sources=sources,
+                limitations=tuple(
+                    str(item)
+                    for item in result.limitations
+                ),
+                route=route,
+                evidence_payload=evidence_payload,
+            )
+
+        return UniversalAnswer(
+            question=question,
+            status=UniversalAnswerStatus.HELD,
+            domain=route.domain,
+            direct_answer=str(
+                getattr(
+                    result,
+                    "answer",
+                    (
+                        "The research pipeline could not "
+                        "verify an answer."
+                    ),
+                )
+            ),
+            simple_explanation=str(
+                getattr(
+                    result,
+                    "explanation",
+                    _research_plan_explanation(route),
+                )
+            ),
+            confidence="insufficient",
+            sources=sources,
+            limitations=tuple(
+                str(item)
+                for item in getattr(
+                    result,
+                    "limitations",
+                    (),
+                )
+            ),
+            route=route,
+            evidence_payload=evidence_payload,
         )
 
     @staticmethod
