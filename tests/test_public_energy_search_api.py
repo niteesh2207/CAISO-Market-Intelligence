@@ -73,8 +73,9 @@ def test_status_endpoint():
 
     assert payload["status"] == "ok"
     assert payload["service"] == (
-        "Energy Market Intelligence"
+        "CAISO Market Intelligence"
     )
+    assert payload["version"] == "4.0.0"
     assert payload[
         "universal_orchestrator"
     ] is True

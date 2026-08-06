@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
@@ -22,18 +23,23 @@ from market_intelligence.api.models import (
     EnergyCapabilityResponse,
     EnergySearchRequest,
     EnergySearchResponse,
+    EnergySourceResponse,
     EnergyStatusResponse,
 )
 from market_intelligence.service.universal_orchestrator import (
+    UniversalAnswerStatus,
     UniversalResearchOrchestrator,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+APP_NAME = "CAISO Market Intelligence"
+APP_VERSION = "4.0.0"
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Energy Market Intelligence",
-    version="4.0.0",
+    title=APP_NAME,
+    version=APP_VERSION,
     description=(
         "Trust-first energy-market search API using "
         "official structured data and controlled "
@@ -156,7 +162,11 @@ def index() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "CAISO Market Intelligence V3"}
+    return {
+        "status": "ok",
+        "service": APP_NAME,
+        "version": APP_VERSION,
+    }
 
 
 @app.post("/api/ask", response_model=AskResponse)
@@ -214,8 +224,8 @@ def ask(req: AskRequest) -> AskResponse:
 def api_status() -> EnergyStatusResponse:
     return EnergyStatusResponse(
         status="ok",
-        service="Energy Market Intelligence",
-        version="4.0.0",
+        service=APP_NAME,
+        version=APP_VERSION,
         universal_orchestrator=True,
         eia_cache_available=(
             BASE_DIR
@@ -290,6 +300,24 @@ def api_capabilities() -> list[
     ]
 
 
+def _fallback_source_rows(
+    citations: list[dict[str, Any]],
+    sources: list[dict[str, Any]],
+) -> list[EnergySourceResponse]:
+    rows = citations if citations else sources
+    return [
+        EnergySourceResponse(
+            provider="openai_web_search",
+            title=str(row.get("title") or row.get("url")),
+            url=str(row["url"]),
+            primary=False,
+            role="supporting",
+        )
+        for row in rows
+        if row.get("url")
+    ]
+
+
 @app.post(
     "/api/search",
     response_model=EnergySearchResponse,
@@ -300,31 +328,138 @@ def energy_search(
     question = req.question.strip()
 
     try:
-        result = _universal_orchestrator.answer(
-            question
-        )
+        result = _universal_orchestrator.answer(question)
 
-    except FileNotFoundError as exc:
+    except FileNotFoundError:
+        logger.info(
+            "Structured operating-data cache was unavailable.",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=503,
             detail={
                 "code": "EIA_CACHE_NOT_AVAILABLE",
-                "message": str(exc),
+                "message": (
+                    "The required operating-data cache is "
+                    "not available."
+                ),
                 "remediation": (
-                    "Refresh the official EIA EBA "
-                    "cache before requesting operating "
-                    "data."
+                    "Refresh the official EIA cache and retry."
                 ),
             },
-        ) from exc
+        ) from None
 
-    except Exception as exc:
+    except Exception:
+        logger.exception("Structured energy executor failed.")
         raise HTTPException(
             status_code=502,
             detail={
                 "code": "STRUCTURED_EXECUTOR_FAILURE",
-                "message": str(exc),
+                "message": (
+                    "The structured research executor failed."
+                ),
             },
-        ) from exc
+        ) from None
 
-    return universal_answer_to_response(result)
+    structured = universal_answer_to_response(result)
+
+    if (
+        result.status != UniversalAnswerStatus.RESEARCH_REQUIRED
+        or not req.allow_web_fallback
+    ):
+        return structured
+
+    intent = classify_intent(question)
+    domains = domains_for_intent(intent)
+    now = datetime.now(ZoneInfo("America/Los_Angeles"))
+    now_pt = now.strftime("%Y-%m-%d %H:%M:%S %Z")
+    broadened = False
+
+    try:
+        response = _search(
+            question=question,
+            intent=intent,
+            now_pt=now_pt,
+            allowed_domains=domains,
+            mode="standard",
+        )
+        answer, citations, sources = _extract_response_data(
+            response
+        )
+
+        if not answer or (
+            len(citations) < 1 and len(sources) < 2
+        ):
+            broadened = True
+            response = _search(
+                question=question,
+                intent=intent,
+                now_pt=now_pt,
+                allowed_domains=None,
+                mode="standard",
+            )
+            answer, citations, sources = _extract_response_data(
+                response
+            )
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        logger.exception("Controlled web fallback failed.")
+        return structured.model_copy(
+            update={
+                "limitations": [
+                    *structured.limitations,
+                    (
+                        "Controlled web fallback failed; the "
+                        "structured research status was preserved."
+                    ),
+                ]
+            }
+        )
+
+    if not answer:
+        return structured.model_copy(
+            update={
+                "limitations": [
+                    *structured.limitations,
+                    (
+                        "Controlled web research returned no "
+                        "releasable answer."
+                    ),
+                ]
+            }
+        )
+
+    return EnergySearchResponse(
+        status="answered",
+        domain=structured.domain,
+        answer=answer,
+        explanation=(
+            "No live structured executor was available for "
+            "this route, so the service used controlled web "
+            "research. Review the supporting sources and "
+            "limitations before operational use."
+        ),
+        confidence="medium",
+        evidence={
+            "fallback_scope": (
+                "broadened_web"
+                if broadened
+                else "authority_constrained_web"
+            ),
+            "searched_at_pt": now_pt,
+        },
+        sources=_fallback_source_rows(citations, sources),
+        limitations=[
+            (
+                "Web-research fallback is supporting evidence, "
+                "not a substitute for a controlling structured "
+                "market-data feed."
+            )
+        ],
+        clarification_options=[],
+        route=structured.route,
+        used_web_fallback=True,
+    )
