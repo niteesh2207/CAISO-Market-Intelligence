@@ -83,12 +83,21 @@ Open:
 
 ```bash
 pip install -r requirements-dev.txt
-python -m compileall -q .
+python -m compileall -q app.py market_intelligence scripts tests
 python -m pytest
-python -m ruff check app.py market_intelligence tests
+python -m ruff check app.py market_intelligence scripts tests
+python scripts/validate_secret_scan.py
 ```
 
 The GitHub Actions workflow repeats these checks for pull requests and changes to `main`.
+
+## Public portfolio preview
+
+The curated static preview is published through the least-privileged, SHA-pinned GitHub Pages workflow at:
+
+`https://niteesh2207.github.io/CAISO-Market-Intelligence/`
+
+The Pages artifact contains only `index.html`, the preview stylesheet and script, and the social-preview image. It performs no market-data requests, accepts no credentials, and does not expose the FastAPI backend. The preview and its deployment controls were verified on **August 6, 2026**.
 
 ## Data-source hierarchy
 

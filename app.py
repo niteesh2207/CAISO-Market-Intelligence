@@ -249,7 +249,7 @@ def api_capabilities() -> list[
     return [
         EnergyCapabilityResponse(
             capability="CAISO market prices",
-            status="live",
+            status="implemented_live_source",
             controlling_source="CAISO OASIS",
             examples=[
                 (
@@ -260,7 +260,7 @@ def api_capabilities() -> list[
         ),
         EnergyCapabilityResponse(
             capability="ISO operating data",
-            status="live_with_local_cache",
+            status="implemented_cache_backed",
             controlling_source="EIA Form EIA-930",
             examples=[
                 "What is CAISO demand right now?",
@@ -270,7 +270,7 @@ def api_capabilities() -> list[
         ),
         EnergyCapabilityResponse(
             capability="Nuclear reactor status",
-            status="live",
+            status="implemented_live_source",
             controlling_source="U.S. NRC",
             examples=[
                 (
@@ -281,7 +281,7 @@ def api_capabilities() -> list[
         ),
         EnergyCapabilityResponse(
             capability="Universal energy research",
-            status="research_fallback",
+            status="implemented_controlled_fallback",
             controlling_source=(
                 "Approved official and high-authority "
                 "web sources"

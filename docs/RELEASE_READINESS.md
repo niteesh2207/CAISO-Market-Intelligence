@@ -9,6 +9,7 @@ Use this checklist before placing the repository in LinkedIn Featured or announc
 - [ ] No claim suggests that licensed premium feeds are bundled.
 - [ ] No claim suggests that web research is settlement-grade data.
 - [ ] Demo questions have deterministic fixtures or clearly state that live answers may change.
+- [ ] GitHub Pages deploys only the curated static artifact and exposes no credentials or backend configuration.
 
 ## Engineering evidence
 
@@ -17,6 +18,7 @@ Use this checklist before placing the repository in LinkedIn Featured or announc
 - [ ] `allow_web_fallback=false` is covered by a contract test.
 - [ ] Internal exceptions are logged server-side and sanitized client-side.
 - [ ] A tagged release and changelog entry identify the public portfolio baseline.
+- [ ] CodeQL completes without unresolved high-severity findings.
 
 ## Security
 
@@ -32,6 +34,7 @@ Use this checklist before placing the repository in LinkedIn Featured or announc
 - [ ] The preview does not request a user-supplied API key in browser code.
 - [ ] Empty, ambiguous, unsupported, stale, and provider-failure states are demonstrated.
 - [ ] Social preview image is readable at LinkedIn card size.
+- [ ] Repository description, homepage, topics, and license are configured deliberately.
 
 ## LinkedIn publication gate
 

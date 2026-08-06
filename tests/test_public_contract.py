@@ -59,6 +59,20 @@ def test_packaging_and_api_versions_match() -> None:
     assert client.get("/api/status").json()["version"] == application.APP_VERSION
 
 
+def test_capabilities_distinguish_implemented_runtime_states() -> None:
+    response = client.get("/api/capabilities")
+    assert response.status_code == 200
+
+    statuses = {item["status"] for item in response.json()}
+    assert statuses == {
+        "implemented_live_source",
+        "implemented_cache_backed",
+        "implemented_controlled_fallback",
+    }
+    assert "planned" not in statuses
+    assert "production_ready" not in statuses
+
+
 def test_search_respects_disabled_web_fallback(monkeypatch) -> None:
     monkeypatch.setattr(
         application,

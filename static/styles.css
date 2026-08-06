@@ -564,6 +564,15 @@ textarea::placeholder {
     line-height: 1.55;
 }
 
+.site-footer {
+    width: min(100% - 40px, 980px);
+    margin: 30px auto;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    text-align: center;
+}
+
 @media (max-width: 680px) {
     .site-header {
         padding: 0 18px;
