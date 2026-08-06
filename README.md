@@ -92,6 +92,8 @@ The GitHub Actions workflow repeats these checks for pull requests and changes t
 
 ## Data-source hierarchy
 
+Source and acquisition rules were re-verified on **August 6, 2026**. See [`SOURCES.md`](SOURCES.md) for the controlling-source matrix, freshness gates, and the prohibition on scraping licensed or authenticated content.
+
 ### Controlling and authoritative sources
 
 - California ISO OASIS and official CAISO publications

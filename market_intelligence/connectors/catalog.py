@@ -26,6 +26,8 @@ class ProviderAccess(StrEnum):
 class ConnectorKind(StrEnum):
     STRUCTURED_API = "structured_api"
     STRUCTURED_DOWNLOAD = "structured_download"
+    LICENSED_API = "licensed_api"
+    LICENSED_DELIVERY = "licensed_delivery"
     DOCUMENT_SEARCH = "document_search"
     WEB_RESEARCH = "web_research"
     FILE_IMPORT = "file_import"
@@ -51,6 +53,43 @@ class ProviderSpec:
 ALL_COMMODITIES = tuple(EnergyCommodity)
 ALL_TOPICS = tuple(EnergyTopic)
 ALL_GEOGRAPHIES = tuple(GeographicScope)
+
+
+def _licensed_provider(
+    *,
+    provider_id: str,
+    name: str,
+    domains: tuple[str, ...],
+) -> ProviderSpec:
+    return ProviderSpec(
+        provider_id=provider_id,
+        name=name,
+        domains=domains,
+        commodities=ALL_COMMODITIES,
+        topics=ALL_TOPICS,
+        geographies=ALL_GEOGRAPHIES,
+        capabilities=(
+            RetrievalCapability.COMPANY_NEWS,
+            RetrievalCapability.GENERAL_WEB_RESEARCH,
+            RetrievalCapability.HISTORICAL_ANALYSIS,
+        ),
+        connector_kinds=(
+            ConnectorKind.LICENSED_API,
+            ConnectorKind.LICENSED_DELIVERY,
+            ConnectorKind.FILE_IMPORT,
+        ),
+        access=ProviderAccess.OPTIONAL_LICENSED,
+        authority_rank=11,
+        is_primary=False,
+        freshness_description=(
+            "Entitled dataset observation or publication timestamp"
+        ),
+        notes=(
+            "Disabled by default; requires an authorized API, bulk, SFTP, "
+            "cloud-delivery, or controlled file-import connector. Generic "
+            "web scraping is prohibited."
+        ),
+    )
 
 
 PROVIDERS: tuple[ProviderSpec, ...] = (
@@ -395,24 +434,35 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         is_primary=False,
         freshness_description="Article publication timestamp",
     ),
-    ProviderSpec(
+    _licensed_provider(
+        provider_id="bloomberg_optional",
+        name="Bloomberg",
+        domains=("bloomberg.com",),
+    ),
+    _licensed_provider(
+        provider_id="ice_optional",
+        name="ICE Data Services",
+        domains=("ice.com",),
+    ),
+    _licensed_provider(
+        provider_id="sp_global_optional",
+        name="S&P Global",
+        domains=("spglobal.com",),
+    ),
+    _licensed_provider(
         provider_id="woodmac_optional",
         name="Wood Mackenzie",
         domains=("woodmac.com",),
-        commodities=ALL_COMMODITIES,
-        topics=ALL_TOPICS,
-        geographies=ALL_GEOGRAPHIES,
-        capabilities=(
-            RetrievalCapability.COMPANY_NEWS,
-            RetrievalCapability.GENERAL_WEB_RESEARCH,
-            RetrievalCapability.HISTORICAL_ANALYSIS,
-        ),
-        connector_kinds=(ConnectorKind.WEB_RESEARCH,),
-        access=ProviderAccess.OPTIONAL_LICENSED,
-        authority_rank=11,
-        is_primary=False,
-        freshness_description="Publication or licensed-dataset timestamp",
-        notes="Licensed content requires authorized access",
+    ),
+    _licensed_provider(
+        provider_id="argus_optional",
+        name="Argus Media",
+        domains=("argusmedia.com",),
+    ),
+    _licensed_provider(
+        provider_id="ngi_optional",
+        name="Natural Gas Intelligence",
+        domains=("naturalgasintel.com",),
     ),
 )
 

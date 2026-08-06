@@ -194,6 +194,7 @@ def matching_sources(
     *,
     market: Market,
     intent: QueryIntent,
+    include_licensed: bool = False,
 ) -> list[SourceAuthority]:
     matches = [
         source
@@ -201,6 +202,11 @@ def matching_sources(
         if (
             market in source.markets
             and intent in source.intents
+            and (
+                include_licensed
+                or source.access_type
+                != AccessType.LICENSED_OPTIONAL
+            )
         )
     ]
 

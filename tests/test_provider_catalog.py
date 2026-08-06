@@ -1,4 +1,5 @@
 from market_intelligence.connectors.catalog import (
+    ConnectorKind,
     ProviderAccess,
     matching_providers,
     provider_by_domain,
@@ -107,4 +108,43 @@ def test_provider_lookup_by_id():
     assert provider is not None
     assert provider.name == (
         "U.S. Energy Information Administration"
+    )
+
+
+def test_licensed_providers_use_entitled_delivery_only():
+    classification = classify_energy_question(
+        "What is the latest global energy news?"
+    )
+    plan = route_capabilities(classification)
+
+    providers = matching_providers(
+        classification,
+        plan,
+        include_licensed=True,
+    )
+    licensed = [
+        provider
+        for provider in providers
+        if provider.access == ProviderAccess.OPTIONAL_LICENSED
+    ]
+
+    assert {
+        provider.provider_id for provider in licensed
+    } >= {
+        "bloomberg_optional",
+        "ice_optional",
+        "sp_global_optional",
+        "woodmac_optional",
+        "argus_optional",
+        "ngi_optional",
+    }
+    assert all(
+        ConnectorKind.WEB_RESEARCH
+        not in provider.connector_kinds
+        for provider in licensed
+    )
+    assert all(
+        ConnectorKind.LICENSED_API
+        in provider.connector_kinds
+        for provider in licensed
     )

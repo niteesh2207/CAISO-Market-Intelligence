@@ -16,6 +16,7 @@ from urllib.request import (
 
 
 from market_intelligence.connectors.catalog import (
+    ProviderAccess,
     ProviderSpec,
 )
 from market_intelligence.retrieval.exceptions import (
@@ -331,6 +332,13 @@ class OfficialWebConnector:
         provider: ProviderSpec,
         url: str,
     ) -> RetrievedRecord:
+        if provider.access == ProviderAccess.OPTIONAL_LICENSED:
+            raise SourceUnauthorizedError(
+                "Licensed providers require an entitled "
+                "server-side delivery connector; generic web "
+                "retrieval is prohibited."
+            )
+
         if not _domain_allowed(
             url,
             provider.domains,
