@@ -225,3 +225,57 @@ def test_company_latest_status_starts_with_primary_documents():
         "company_primary_source"
     )
 
+
+@pytest.mark.parametrize(
+    ("question", "expected_geography"),
+    [
+        (
+            "Where are data centers in SDG&E territory?",
+            "california",
+        ),
+        (
+            "Which data centres are planned in SDGE territory?",
+            "california",
+        ),
+        (
+            "Where are data centers in San Diego Gas and Electric territory?",
+            "california",
+        ),
+        (
+            "What large-load projects are connecting in California?",
+            "california",
+        ),
+        (
+            "How could hyperscale facilities affect ERCOT demand?",
+            "texas",
+        ),
+        (
+            "How much AI load growth is in the PJM interconnection queue?",
+            "pjm",
+        ),
+    ],
+)
+def test_large_load_questions_route_to_electricity_research(
+    question,
+    expected_geography,
+):
+    route = route_energy_question(question)
+
+    assert route.domain == EnergyDomain.ELECTRICITY_MARKETS
+    assert route.research_mode in {
+        ResearchMode.STRUCTURED_DATA,
+        ResearchMode.HYBRID_RESEARCH,
+    }
+    assert route.geography == expected_geography
+    assert route.providers
+    assert route.clarification is None
+
+
+def test_general_question_remains_outside_energy_router():
+    route = route_energy_question(
+        "What is the best movie this year?"
+    )
+
+    assert route.domain == EnergyDomain.UNKNOWN
+    assert route.research_mode == ResearchMode.CLARIFICATION
+    assert route.providers == ()

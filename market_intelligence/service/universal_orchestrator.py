@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 from market_intelligence.routing.universal_energy_router import (
     EnergyDomain,
+    ResearchMode,
     UniversalEnergyRoute,
     route_energy_question,
 )
@@ -321,6 +322,8 @@ class UniversalResearchOrchestrator:
         if (
             route.domain
             == EnergyDomain.ELECTRICITY_MARKETS
+            and route.research_mode
+            == ResearchMode.STRUCTURED_DATA
             and self._is_operating_data_question(
                 cleaned
             )
@@ -334,6 +337,7 @@ class UniversalResearchOrchestrator:
             route.domain
             == EnergyDomain.ELECTRICITY_MARKETS
             and route.geography == "california"
+            and self._is_caiso_price_question(cleaned)
         ):
             return self._answer_caiso(
                 cleaned,
@@ -388,6 +392,40 @@ class UniversalResearchOrchestrator:
         return (
             resolve_authority(question) is not None
             and resolve_metric(question) is not None
+        )
+
+    @staticmethod
+    def _is_caiso_price_question(
+        question: str,
+    ) -> bool:
+        normalized = re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            question.lower(),
+        ).strip()
+
+        return any(
+            re.search(
+                rf"\b{re.escape(term)}\b",
+                normalized,
+            )
+            for term in (
+                "lmp",
+                "price",
+                "prices",
+                "settle",
+                "settled",
+                "settlement",
+                "day ahead",
+                "real time",
+                "fifteen minute",
+                "dam",
+                "fmm",
+                "rtm",
+                "np 15",
+                "sp 15",
+                "zp 26",
+            )
         )
 
     def _answer_operating_data(

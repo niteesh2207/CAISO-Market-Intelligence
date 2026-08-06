@@ -16,19 +16,26 @@ Every `/api/ask` request:
 
 The backend uses the OpenAI **Responses API** with the hosted `web_search` tool.
 
-As of **2026-07-26**, OpenAI's current documentation recommends the Responses API `web_search` tool for new integrations. It supports domain filtering, complete search source lists, live web access and inline URL citations.
+As of **2026-08-06**, OpenAI's model documentation lists the
+`gpt-5.6` alias as supporting the Responses API and web search. See
+the [official OpenAI model documentation](https://developers.openai.com/api/docs/models).
 
 ## Important limitation
 
 This package can become live once deployed with a valid `OPENAI_API_KEY`.
 
-It does **not** itself include:
+It includes public-source executors for CAISO OASIS prices, EIA
+operating data, NRC reactor status and citation-aware research. It
+does **not** include:
 - licensed ICE data;
 - licensed Bloomberg/S&P/WoodMac/Argus/NGI feeds;
 - private utility credentials;
-- a dedicated CAISO OASIS structured-data connector.
+- redistribution rights for proprietary market data.
 
-For maximum numerical accuracy on questions such as exact NP15/SP15 settlements, the next phase should add a direct OASIS connector alongside web research.
+Licensed premium feeds must be integrated only with valid customer
+credentials and redistribution terms. Public research prioritizes
+controlling and primary sources; reputable news is supporting context,
+not a substitute for official numerical evidence.
 
 ## Run locally
 
@@ -43,6 +50,13 @@ uvicorn app:app --reload
 Open:
 
 `http://127.0.0.1:8000`
+
+## Test locally
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
 
 ## Docker
 
@@ -60,10 +74,9 @@ A static GitHub Pages site is **not sufficient** for this version because API cr
 ## Recommended next data connectors
 
 P0:
-- CAISO OASIS structured price/constraint queries
+- CAISO OASIS constraint and outage queries
 - CAISO generator/outage reports
 - BPA 5-minute wind/load/interchange data
-- NRC reactor-status data
 
 P1:
 - NOAA/NWS structured weather
@@ -96,4 +109,5 @@ The full FastAPI app will research current web sources at question time.
 
 ## Baseline
 
-Repository documentation and deployment assumptions were re-verified on **July 26, 2026**.
+Repository documentation, routing behavior and deployment assumptions
+were re-verified on **August 6, 2026**.

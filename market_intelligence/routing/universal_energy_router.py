@@ -58,6 +58,22 @@ class UniversalEnergyRoute:
     clarification: str | None = None
 
 
+LARGE_LOAD_TERMS = (
+    "data center",
+    "data centers",
+    "data centre",
+    "data centres",
+    "large load",
+    "hyperscale",
+    "hyperscaler",
+    "ai load",
+    "industrial load",
+    "campus load",
+    "load growth",
+    "interconnection project",
+)
+
+
 DOMAIN_KEYWORDS: dict[EnergyDomain, tuple[str, ...]] = {
     EnergyDomain.NUCLEAR: (
         "nuclear",
@@ -169,6 +185,7 @@ DOMAIN_KEYWORDS: dict[EnergyDomain, tuple[str, ...]] = {
         "asset sale",
     ),
     EnergyDomain.ELECTRICITY_MARKETS: (
+        *LARGE_LOAD_TERMS,
         "lmp",
         "electricity price",
         "power price",
@@ -473,6 +490,9 @@ GEOGRAPHY_PATTERNS = {
     "california": (
         "california",
         "caiso",
+        "sdg&e",
+        "sdge",
+        "san diego gas and electric",
         "np15",
         "np 15",
         "sp15",
@@ -531,6 +551,16 @@ ENTITY_PATTERNS = (
     "nrc",
     "eia",
 )
+
+
+ENTITY_ALIASES: dict[str, tuple[str, ...]] = {
+    "sdg&e": (
+        "sdg&e",
+        "sdge",
+        "sdg and e",
+        "san diego gas and electric",
+    ),
+}
 
 
 def _normalize(value: str) -> str:
@@ -619,6 +649,13 @@ def _extract_entities(
     for entity in ENTITY_PATTERNS:
         if _contains_term(normalized, entity):
             entities.append(entity)
+
+    for canonical, aliases in ENTITY_ALIASES.items():
+        if any(
+            _contains_term(normalized, alias)
+            for alias in aliases
+        ):
+            entities.append(canonical)
 
     return tuple(entities)
 

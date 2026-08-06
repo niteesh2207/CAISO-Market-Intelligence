@@ -16,6 +16,7 @@ from prompting import build_research_prompt
 from source_registry import classify_intent, domains_for_intent
 
 from market_intelligence.api.adapter import (
+    cited_answer_to_response,
     universal_answer_to_response,
 )
 from market_intelligence.api.models import (
@@ -23,6 +24,9 @@ from market_intelligence.api.models import (
     EnergySearchRequest,
     EnergySearchResponse,
     EnergyStatusResponse,
+)
+from market_intelligence.service.cited_research_service import (
+    default_cited_research_service,
 )
 from market_intelligence.service.universal_orchestrator import (
     UniversalResearchOrchestrator,
@@ -43,6 +47,10 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _universal_orchestrator = UniversalResearchOrchestrator()
+
+_cited_research_service = (
+    default_cited_research_service()
+)
 
 
 class AskRequest(BaseModel):
@@ -327,4 +335,49 @@ def energy_search(
             },
         ) from exc
 
-    return universal_answer_to_response(result)
+    result_status = str(
+        getattr(
+            result.status,
+            "value",
+            result.status,
+        )
+    )
+
+    if (
+        result_status == "research_required"
+        and req.allow_web_fallback
+    ):
+        try:
+            cited_answer = (
+                _cited_research_service.answer(
+                    question
+                )
+            )
+
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "code": (
+                        "CITED_RESEARCH_FAILURE"
+                    ),
+                    "message": str(exc),
+                },
+            ) from exc
+
+        domain = str(
+            getattr(
+                result.domain,
+                "value",
+                result.domain,
+            )
+        )
+
+        return cited_answer_to_response(
+            cited_answer,
+            domain=domain,
+        )
+
+    return universal_answer_to_response(
+        result
+    )

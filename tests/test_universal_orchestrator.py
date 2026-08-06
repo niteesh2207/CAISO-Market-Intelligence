@@ -244,6 +244,28 @@ def test_unimplemented_domain_returns_research_plan():
     }
 
 
+def test_california_large_load_question_bypasses_price_agent():
+    caiso = FakeCaisoAgent()
+    orchestrator = UniversalResearchOrchestrator(
+        caiso_agent=caiso,
+        nuclear_agent=FakeNuclearAgent(),
+    )
+
+    result = orchestrator.answer(
+        "Where are data centers in SDG&E territory?"
+    )
+
+    assert result.status == (
+        UniversalAnswerStatus.RESEARCH_REQUIRED
+    )
+    assert result.domain == (
+        EnergyDomain.ELECTRICITY_MARKETS
+    )
+    assert result.route is not None
+    assert result.route.geography == "california"
+    assert caiso.questions == []
+
+
 def test_weather_question_returns_multi_source_plan():
     orchestrator = UniversalResearchOrchestrator(
         caiso_agent=FakeCaisoAgent(),

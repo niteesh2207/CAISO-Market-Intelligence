@@ -20,6 +20,17 @@ class EnergySourceResponse(BaseModel):
     url: str
     primary: bool
     role: str
+    source_id: int | None = None
+    source_tier: str | None = None
+    retrieved_at: str | None = None
+
+
+class EnergyClaimResponse(BaseModel):
+    text: str
+    source_ids: list[int] = Field(
+        default_factory=list
+    )
+    claim_type: str = "fact"
 
 
 class EnergySearchResponse(BaseModel):
@@ -43,9 +54,15 @@ class EnergySearchResponse(BaseModel):
         default_factory=list
     )
 
+    claims: list[EnergyClaimResponse] = Field(
+        default_factory=list
+    )
+
     limitations: list[str] = Field(
         default_factory=list
     )
+
+    as_of: str | None = None
 
     clarification_options: list[str] = Field(
         default_factory=list
