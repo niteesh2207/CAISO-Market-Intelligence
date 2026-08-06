@@ -2,7 +2,7 @@ name: Deploy static portfolio preview
 
 on:
   push:
-    branches: [main]
+    branches: [main, agent/linkedin-quality-hardening]
     paths:
       - index.html
       - assets/**
