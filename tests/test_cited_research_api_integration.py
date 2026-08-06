@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app as app_module
@@ -16,6 +17,7 @@ from market_intelligence.routing.universal_energy_router import (
 from market_intelligence.service.universal_orchestrator import (
     UniversalAnswer,
     UniversalAnswerStatus,
+    UniversalResearchOrchestrator,
 )
 
 
@@ -46,6 +48,13 @@ class FakeCitedResearchService:
     ) -> CitedResearchAnswer:
         self.calls += 1
         return self.result
+
+
+class UnexpectedCaisoAgent:
+    def answer(self, question):
+        raise AssertionError(
+            "Non-price research must not call the CAISO price agent."
+        )
 
 
 def structured_answer() -> UniversalAnswer:
@@ -288,6 +297,48 @@ def test_web_fallback_can_be_disabled(
     )
     assert payload["used_web_fallback"] is False
     assert research.calls == 0
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Where are data centers in SDG&E territory?",
+        "Which data centres are planned in SDGE territory?",
+        (
+            "Where are data centers in "
+            "San Diego Gas and Electric territory?"
+        ),
+        "What large-load projects are connecting in California?",
+        "How could hyperscale facilities affect ERCOT demand?",
+    ],
+)
+def test_live_router_reaches_research_required_without_web_fallback(
+    monkeypatch,
+    question,
+):
+    monkeypatch.setattr(
+        app_module,
+        "_universal_orchestrator",
+        UniversalResearchOrchestrator(
+            caiso_agent=UnexpectedCaisoAgent(),
+        ),
+    )
+
+    response = client.post(
+        "/api/search",
+        json={
+            "question": question,
+            "allow_web_fallback": False,
+        },
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["status"] == "research_required"
+    assert payload["domain"] == "electricity_markets"
+    assert payload["used_web_fallback"] is False
 
 
 def test_held_cited_response_is_preserved(
