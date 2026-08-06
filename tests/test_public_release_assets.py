@@ -102,3 +102,13 @@ def test_social_preview_meets_github_size_limit() -> None:
     image = ROOT / "assets" / "social-preview.jpg"
     assert image.is_file()
     assert image.stat().st_size <= 1_000_000
+
+
+def test_application_javascript_uses_release_safe_status_language() -> None:
+    script = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "Research orchestrator available" in script
+    assert "Service status is temporarily unavailable" in script
+    assert 'join(" ? ")' not in script
+    assert 'textContent = "?"' not in script
+    assert '"Searching?"' not in script
