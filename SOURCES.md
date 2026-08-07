@@ -1,32 +1,50 @@
-# Source & Research Policy — verified July 26, 2026
+# Source and Acquisition Policy — verified August 7, 2026
 
-## Tier 1 — primary operational / market
+CAISO Market Intelligence uses the highest-quality source that is legally and technically available. "Premium" means an entitled commercial feed or delivery channel; it does not mean scraping a paywall, login page, search-result snippet, or licensed publication.
 
-- CAISO / OASIS
-- CAISO market reports, notices and outage publications
-- BPA operational data
-- NRC reactor status
-- FERC
-- EIA
-- California Energy Commission
-- CPUC
-- NOAA / NWS
-- PG&E / SCE / SDG&E / SoCalGas / PacifiCorp / other relevant utilities
+## Tier 1 — controlling structured sources
 
-## Tier 2 — reputable secondary market context
+- [CAISO OASIS](https://oasis.caiso.com/) API and bulk downloads for market prices, LMP components, congestion, and other published market data
+- official CAISO market reports, notices, outage publications, and operating-system data
+- [EIA API v2](https://www.eia.gov/opendata/documentation.php) and EIA bulk downloads
+- [NRC Power Reactor Status Reports](https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/index)
+- [FERC Data API](https://data.ferc.gov/developer/gettingstarted/understanding-our-apis/) and official FERC filings
+- NOAA/NWS APIs and official observations or forecasts
+- CEC, CPUC, BPA, and relevant balancing-authority or utility publications
 
-Where publicly accessible:
-- Reuters
-- Bloomberg
-- S&P Global
-- Argus
-- Wood Mackenzie
-- Natural Gas Intelligence
+For exact settlement, price, LMP-component, binding-constraint, outage, or regulatory claims, a controlling structured source is required whenever one exists.
 
-## Commercial-data rule
+## Tier 2 — authoritative public context
 
-Public web search is **not** equivalent to licensed access. The application must never claim use of ICE, Bloomberg Terminal, S&P Global, Wood Mackenzie, Argus, NGI or another paid feed unless an authenticated licensed connector is actually configured.
+- official agency, balancing-authority, utility, issuer, or exchange publications
+- Reuters reporting for corroborating context
+- SEC filings and official company investor-relations releases
 
-## Exact-price rule
+Tier 2 sources may explain context, but they do not replace a controlling source for exact operational or settlement facts.
 
-For SP15 / NP15 price, settlement, LMP-component and binding-constraint questions, the production roadmap should prefer direct CAISO OASIS structured retrieval over general web search.
+## Tier 3 — entitled premium sources
+
+Potential enterprise integrations include Bloomberg, ICE, S&P Global, Wood Mackenzie, Argus, and Natural Gas Intelligence. They are disabled by default and require all of the following:
+
+1. a valid organizational license and entitlement for the requested dataset;
+2. an authenticated server-side connector;
+3. an approved API, bulk download, SFTP, cloud-delivery, or controlled file-import method;
+4. provider-specific retention, redistribution, attribution, and audit controls;
+5. secrets stored outside source control;
+6. provenance metadata that identifies the provider, dataset, observation time, retrieval time, and entitlement-controlled delivery method.
+
+The public repository does not contain premium credentials or licensed records.
+
+## Prohibited acquisition methods
+
+- scraping authenticated pages, paywalls, terminals, or subscriber-only publications;
+- bypassing access controls, robots rules, rate limits, or provider terms;
+- treating public search snippets as licensed-feed data;
+- copying or redistributing licensed raw data without contractual permission;
+- silently substituting secondary reporting for a controlling official dataset.
+
+## Freshness and quality gates
+
+Every material record should carry source URL or dataset identifier, market interval, units, timezone, publication or observation timestamp, and retrieval timestamp. Stale, incomplete, unit-ambiguous, or provenance-free data must be held or clearly qualified rather than presented as current fact.
+
+The source-policy code defaults to public official sources. Licensed providers are excluded unless the caller explicitly supplies an entitled provider identifier, and the generic official-web connector rejects licensed providers even when their domains are known.

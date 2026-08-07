@@ -7,3 +7,4 @@ htmlcov/
 .venv/
 .cache/
 *.zip
+workspace-tool/.sites-git/
