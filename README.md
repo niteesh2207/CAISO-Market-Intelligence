@@ -1,99 +1,189 @@
-# CAISO Market Intelligence — Live Research V3
+# CAISO Market Intelligence — V4.0.0
 
-This is the first version of the project that is designed to **research the web at question time** instead of returning canned answers.
+A **trust-first energy-market research API** that prioritizes official structured data, preserves source provenance, and uses controlled web research only when an approved structured executor is unavailable.
 
-## What changed
+> **Status:** Public engineering alpha and portfolio demonstration. This repository is not a trading system, a replacement for licensed market-data services, or a guarantee that every energy question can be answered from a live structured source.
 
-Every `/api/ask` request:
+## Live analyst workspace
 
-1. classifies the market question;
-2. resolves the current Pacific Time context;
-3. searches current high-authority web sources;
-4. prioritizes CAISO/OASIS, BPA, NRC, FERC/EIA/CEC/CPUC, utilities and weather authorities;
-5. uses reputable market-news sources only as secondary context;
-6. broadens the search automatically if the authority-constrained pass is too weak;
-7. returns a concise answer plus URLs actually consulted.
+Open the private question-and-answer workspace:
 
-The backend uses the OpenAI **Responses API** with the hosted `web_search` tool.
+**[Launch CAISO Market Intelligence Workspace](https://caiso-market-intelligence-workspace.mallavarapu-r.chatgpt.site)**
 
-As of **2026-07-26**, OpenAI's current documentation recommends the Responses API `web_search` tool for new integrations. It supports domain filtering, complete search source lists, live web access and inline URL citations.
+The hosted workspace routes questions to the V4 research API when a backend URL is configured, enables current source-grounded OpenAI research when a server-side key is configured, and otherwise remains useful through verified model evidence packs. Every path preserves source roles, limitations, and the prohibition on treating demonstration output as trading or settlement data.
 
-## Important limitation
+## What is implemented
 
-This package can become live once deployed with a valid `OPENAI_API_KEY`.
+The V4 API currently provides:
 
-It does **not** itself include:
-- licensed ICE data;
-- licensed Bloomberg/S&P/WoodMac/Argus/NGI feeds;
-- private utility credentials;
-- a dedicated CAISO OASIS structured-data connector.
+- CAISO market-price research through a structured CAISO pathway;
+- EIA Form EIA-930 operating-data research using a managed local cache;
+- U.S. NRC reactor-status research;
+- classification and routing across energy-market domains;
+- primary/supporting source roles, confidence, limitations, and evidence payloads;
+- clarification and hold states when mandatory evidence is incomplete;
+- a controlled web-research fallback for routes without a connected structured executor;
+- a credential-free public-web fallback that discovers approved sources,
+  retrieves public pages safely, and returns cited evidence when no
+  server-side OpenAI key is configured;
+- FastAPI status, capability, search, and API-documentation endpoints;
+- automated public-contract and unit tests.
 
-For maximum numerical accuracy on questions such as exact NP15/SP15 settlements, the next phase should add a direct OASIS connector alongside web research.
+## Trust model
+
+The service follows this release sequence:
+
+```text
+Question
+   ↓
+Energy-domain classification
+   ↓
+Approved provider routing
+   ↓
+Structured executor, when available
+   ↓
+Evidence and freshness checks
+   ↓
+Answer / clarification / hold decision
+   ↓
+Optional controlled web fallback
+```
+
+A structured result remains the preferred evidence path. Web fallback is supporting research and is explicitly identified in the response; it is not presented as equivalent to a controlling settlement or operating-data feed.
+
+## API surfaces
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Lightweight service and version check |
+| `GET /api/status` | Runtime capability status |
+| `GET /api/capabilities` | Implemented research capabilities |
+| `POST /api/search` | Trust-first structured search with optional web fallback |
+| `POST /api/ask` | Legacy authority-constrained web-research endpoint |
+| `GET /docs` | OpenAPI documentation |
+
+### Structured search example
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "question": "What were NP-15 day-ahead prices yesterday?",
+    "allow_web_fallback": false
+  }'
+```
+
+Set `allow_web_fallback` to `false` when the calling workflow requires a structured executor and should not accept web-research substitution.
+
+With fallback enabled, a structured source outage no longer terminates the
+request before research can run. The service logs the detailed executor error
+server-side, then uses model-backed web research when `OPENAI_API_KEY` is
+configured or deterministic source-grounded public research otherwise.
 
 ## Run locally
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
-export OPENAI_API_KEY="..."
+export OPENAI_API_KEY="..."  # required only for web-research endpoints
 uvicorn app:app --reload
 ```
 
 Open:
 
-`http://127.0.0.1:8000`
+- application: `http://127.0.0.1:8000`
+- API documentation: `http://127.0.0.1:8000/docs`
 
-## Docker
+## Validate
 
 ```bash
-docker build -t caiso-market-intelligence .
-docker run -p 8000:8000 -e OPENAI_API_KEY="$OPENAI_API_KEY" caiso-market-intelligence
+pip install -r requirements-dev.txt
+python -m compileall -q app.py market_intelligence scripts tests
+python -m pytest
+python -m ruff check app.py market_intelligence scripts tests
+python scripts/validate_secret_scan.py
 ```
 
-## Deploy
+The GitHub Actions workflow repeats these checks for pull requests and changes to `main`.
 
-The included `render.yaml` is suitable as a starting point for Render.
+## Public portfolio preview
 
-A static GitHub Pages site is **not sufficient** for this version because API credentials must remain server-side.
-
-## Recommended next data connectors
-
-P0:
-- CAISO OASIS structured price/constraint queries
-- CAISO generator/outage reports
-- BPA 5-minute wind/load/interchange data
-- NRC reactor-status data
-
-P1:
-- NOAA/NWS structured weather
-- FERC/CPUC/CEC retrieval
-- SoCalGas / PG&E operational notices
-- licensed premium market-data connectors where authorized
-
-
-## GitHub deployment surfaces
-
-### Public GitHub Pages preview
-
-The `site/` folder is deployed by `.github/workflows/pages.yml`.
-
-Expected URL after Pages is enabled:
+The curated static preview is published through the least-privileged, SHA-pinned GitHub Pages workflow at:
 
 `https://niteesh2207.github.io/CAISO-Market-Intelligence/`
 
-This preview is intentionally static and does not make authenticated research calls.
+The Pages artifact contains only `index.html`, the preview stylesheet and script, and the social-preview image. It performs no market-data requests, accepts no credentials, and does not expose the FastAPI backend. The preview and its deployment controls were verified on **August 6, 2026**.
 
-### Full live demo in GitHub Codespaces
+## Data-source hierarchy
 
-1. In repository **Settings → Secrets and variables → Codespaces**, add:
-   - `OPENAI_API_KEY`
-2. Create a codespace.
-3. Port `8000` is forwarded by the devcontainer configuration.
-4. Open the forwarded URL.
+Source and acquisition rules were re-verified on **August 7, 2026**. See [`SOURCES.md`](SOURCES.md) for the controlling-source matrix, freshness gates, and the prohibition on scraping licensed or authenticated content.
 
-The full FastAPI app will research current web sources at question time.
+### Controlling and authoritative sources
 
-## Baseline
+- California ISO OASIS and official CAISO publications
+- U.S. Energy Information Administration
+- U.S. Nuclear Regulatory Commission
+- Federal Energy Regulatory Commission
+- California Energy Commission and California Public Utilities Commission
+- relevant balancing authorities, utilities, and government weather services
 
-Repository documentation and deployment assumptions were re-verified on **July 26, 2026**.
+### Supporting sources
+
+High-quality market reporting may be used for context, but should not replace a controlling official source for settlement, outage, operational, or regulatory claims when such a source exists.
+
+### Premium and licensed data
+
+This public repository does **not** bundle or redistribute licensed Bloomberg, ICE, S&P Global, Wood Mackenzie, Argus, NGI, or private utility data. Premium integrations should use licensed APIs, bulk delivery, SFTP, or approved cloud delivery under the user's entitlements. Credentials and raw licensed datasets must remain outside the public repository.
+
+## Security posture
+
+- API credentials remain server-side.
+- Raw internal exception messages are not returned to clients.
+- The public alpha can run without application-level authentication; production deployments should enforce authentication, authorization, rate limits, request-size limits, audit logging, and network controls at the application gateway.
+- Secrets must be stored in the deployment platform's secret manager, never in source control or browser code.
+- Enable GitHub secret scanning, push protection, Dependabot, and branch protection before public promotion.
+
+See [`SECURITY.md`](SECURITY.md) and [`docs/RELEASE_READINESS.md`](docs/RELEASE_READINESS.md).
+
+## Deployment
+
+A Dockerfile and Render configuration are included. GitHub Pages can host only the static preview; it cannot safely host authenticated server-side research calls.
+
+## Known limitations
+
+- Some classified routes still return `research_required` because a live structured executor has not been connected.
+- EIA operating-data results depend on cache availability and freshness.
+- The web fallback depends on a configured OpenAI API key and should be treated as research support rather than a settlement-grade feed.
+- The repository does not yet include application-level authentication, distributed rate limiting, production observability, or a service-level objective.
+
+## Roadmap
+
+### P0 — portfolio release
+
+- keep V4 branding consistent across API, README, screenshots, and social preview;
+- require CI on pull requests;
+- publish a deterministic demonstration with stored response fixtures;
+- document data freshness by metric and provider;
+- configure repository security and branch protection.
+
+### P1 — production hardening
+
+- authenticated API access and rate limiting;
+- structured outage, weather, regulatory, and gas-market connectors;
+- persistent cache and evidence store;
+- OpenTelemetry traces, structured logs, metrics, and alerting;
+- contract tests against provider schemas.
+
+### P2 — licensed enterprise deployment
+
+- entitlement-aware premium data connectors;
+- customer-specific access controls;
+- reproducible research packets and audit exports;
+- service-level objectives and incident runbooks.
+
+## Intellectual property and disclaimer
+
+The repository demonstrates system architecture and public-source research workflows. Proprietary ranking weights, commercial prompts, customer data, licensed datasets, and production trading logic should remain private.
+
+This software is provided for research, engineering, and portfolio demonstration. It is not financial or trading advice and does not guarantee market outcomes.
