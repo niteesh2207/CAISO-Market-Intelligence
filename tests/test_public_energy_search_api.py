@@ -249,7 +249,9 @@ def test_structured_failure_uses_public_research_when_enabled(
     class PublicAgent:
         def answer(self, question, *, allowed_domains):
             assert question
-            assert "caiso.com" in allowed_domains
+            assert allowed_domains == application.domains_for_intent(
+                application.classify_intent(question)
+            )
             return PublicResult()
 
     monkeypatch.setattr(

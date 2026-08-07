@@ -23,5 +23,8 @@ def test_public_web_search_excludes_licensed_domains():
 def test_price_search_includes_controlling_oasis_domains():
     price_domains = set(INTENT_DOMAINS["price"])
 
-    assert "oasis.caiso.com" in price_domains
-    assert "oasis-bulk.caiso.com" in price_domains
+    expected = {
+        "oasis.caiso.com",
+        "oasis-bulk.caiso.com",
+    }
+    assert price_domains.intersection(expected) == expected
