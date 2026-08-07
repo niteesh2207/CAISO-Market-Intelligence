@@ -402,6 +402,7 @@ def energy_search(
     public_sources: list[EnergySourceResponse] = []
     public_limitations: list[str] = []
     fallback_evidence: dict[str, Any] = {}
+    fallback_confidence = "medium"
 
     if os.getenv("OPENAI_API_KEY"):
         try:
@@ -436,6 +437,7 @@ def energy_search(
                 allowed_domains=domains,
             )
             answer = public_result.answer
+            fallback_confidence = public_result.confidence
             public_limitations.extend(public_result.limitations)
             fallback_evidence = {
                 "searched_at_utc": public_result.searched_at,
@@ -450,6 +452,9 @@ def energy_search(
                     url=source.url,
                     primary=source.primary,
                     role="controlling" if source.primary else "supporting",
+                    published_at=source.published_at,
+                    retrieved_at=source.retrieved_at,
+                    freshness=source.freshness,
                 )
                 for source in public_result.sources
             ]
@@ -476,7 +481,11 @@ def energy_search(
         raise HTTPException(status_code=status_code, detail=detail)
 
     return EnergySearchResponse(
-        status="answered",
+        status=(
+            "research_required"
+            if fallback_confidence == "insufficient"
+            else "answered"
+        ),
         domain=structured.domain if structured is not None else intent,
         answer=answer,
         explanation=(
@@ -485,7 +494,7 @@ def energy_search(
             "research. Review the supporting sources and "
             "limitations before operational use."
         ),
-        confidence="medium",
+        confidence=fallback_confidence,
         evidence={
             "fallback_scope": (
                 "broadened_web"

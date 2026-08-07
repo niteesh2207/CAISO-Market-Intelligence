@@ -127,10 +127,19 @@ function renderSources(sources) {
 
         const metadata = document.createElement("div");
         metadata.className = "source-meta";
+        const freshness = source.freshness
+            ? `Freshness: ${humanize(source.freshness)}`
+            : null;
+        const asOf = source.published_at || source.retrieved_at;
+        const asOfLabel = asOf
+            ? `As of ${new Date(asOf).toLocaleString()}`
+            : "Publication date unavailable";
         metadata.textContent = [
             source.primary ? "Primary source" : "Supporting source",
             humanize(source.role),
-        ].join(" · ");
+            freshness,
+            asOfLabel,
+        ].filter(Boolean).join(" · ");
 
         const arrow = document.createElement("span");
         arrow.textContent = "↗";

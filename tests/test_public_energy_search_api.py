@@ -273,3 +273,41 @@ def test_structured_failure_uses_public_research_when_enabled(
     assert payload["status"] == "answered"
     assert payload["used_web_fallback"] is True
     assert payload["evidence"]["retrieved_pages"] == 2
+
+
+def test_unverified_current_research_is_not_labeled_answered(monkeypatch):
+    monkeypatch.setattr(
+        application,
+        "_universal_orchestrator",
+        FailedStructuredExecutor(),
+    )
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    class PublicResult:
+        answer = "I could not verify a current answer."
+        confidence = "insufficient"
+        limitations = ("Fresh primary evidence was unavailable.",)
+        searched_at = "2026-08-07T12:00:00+00:00"
+        discovered_results = 2
+        retrieved_pages = 0
+        sources = ()
+
+    class PublicAgent:
+        def answer(self, _question, *, allowed_domains):
+            assert allowed_domains
+            return PublicResult()
+
+    monkeypatch.setattr(application, "_public_web_agent", PublicAgent())
+
+    response = client.post(
+        "/api/search",
+        json={
+            "question": "What hydro is running at capacity now?",
+            "allow_web_fallback": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "research_required"
+    assert payload["confidence"] == "insufficient"

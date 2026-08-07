@@ -19,6 +19,9 @@ Use this checklist before placing the repository in LinkedIn Featured or announc
   disabling fallback preserves the sanitized 502/503 contract.
 - Keyless fallback excludes licensed domains, rejects non-public fetch
   targets, and never exposes connector exceptions to the browser.
+- Current-answer claims require recent, successfully retrieved primary evidence.
+- Public sources expose publication/retrieval freshness in the API and UI.
+- Broken pages and stale results are demoted or withheld from current claims.
 
 - [ ] CI is required on pull requests.
 - [ ] All tests pass on Python 3.12.
