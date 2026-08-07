@@ -45,7 +45,7 @@ function resetResults() {
 function setLoading(loading) {
     setHidden(elements.loading, !loading);
     elements.searchButton.disabled = loading;
-    elements.searchButton.textContent = loading ? "Searching?" : "Search";
+    elements.searchButton.textContent = loading ? "Searching…" : "Search";
 }
 
 
@@ -127,13 +127,22 @@ function renderSources(sources) {
 
         const metadata = document.createElement("div");
         metadata.className = "source-meta";
+        const freshness = source.freshness
+            ? `Freshness: ${humanize(source.freshness)}`
+            : null;
+        const asOf = source.published_at || source.retrieved_at;
+        const asOfLabel = asOf
+            ? `As of ${new Date(asOf).toLocaleString()}`
+            : "Publication date unavailable";
         metadata.textContent = [
             source.primary ? "Primary source" : "Supporting source",
             humanize(source.role),
-        ].join(" ? ");
+            freshness,
+            asOfLabel,
+        ].filter(Boolean).join(" · ");
 
         const arrow = document.createElement("span");
-        arrow.textContent = "?";
+        arrow.textContent = "↗";
         arrow.setAttribute("aria-hidden", "true");
 
         information.append(provider, title, metadata);
@@ -263,14 +272,14 @@ async function loadStatus() {
 
         const messages = [
             status.universal_orchestrator
-                ? "Research engine online"
-                : "Research engine unavailable",
+                ? "Research orchestrator available"
+                : "Research orchestrator unavailable",
             status.eia_cache_available
                 ? "EIA operating data ready"
                 : "EIA cache unavailable",
         ];
 
-        elements.systemStatus.textContent = messages.join(" ? ");
+        elements.systemStatus.textContent = messages.join(" · ");
 
         elements.systemStatus.classList.add(
             status.universal_orchestrator
@@ -280,7 +289,7 @@ async function loadStatus() {
 
     } catch {
         elements.systemStatus.textContent =
-            "Live status is temporarily unavailable.";
+            "Service status is temporarily unavailable.";
 
         elements.systemStatus.classList.add("warning");
     }
@@ -309,11 +318,11 @@ async function loadCapabilities() {
             const metadata = document.createElement("div");
             metadata.className = "capability-meta";
             metadata.textContent =
-                `${humanize(capability.status)} ? ${capability.controlling_source}`;
+                `${humanize(capability.status)} · ${capability.controlling_source}`;
 
             const examples = document.createElement("p");
             examples.textContent =
-                capability.examples.join(" ? ");
+                capability.examples.join(" · ");
 
             card.append(title, metadata, examples);
             elements.capabilitiesList.append(card);

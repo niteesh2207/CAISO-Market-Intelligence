@@ -33,7 +33,7 @@ def test_root_returns_search_interface():
     ]
 
     assert (
-        "Search the energy markets"
+        "Research CAISO and energy markets"
         in response.text
     )
 

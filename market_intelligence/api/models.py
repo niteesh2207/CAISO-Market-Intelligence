@@ -20,6 +20,9 @@ class EnergySourceResponse(BaseModel):
     url: str
     primary: bool
     role: str
+    published_at: str | None = None
+    retrieved_at: str | None = None
+    freshness: str | None = None
 
 
 class EnergySearchResponse(BaseModel):

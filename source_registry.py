@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-# Public / web-searchable authorities. Commercial sources are included only as
-# secondary public-web context; this does NOT imply licensed premium-feed access.
+# Public web-search authorities only. Licensed publishers are deliberately
+# excluded: premium data must arrive through an entitled server-side connector,
+# not public-page scraping or search snippets.
 
 COMMON_AUTHORITIES = [
     "caiso.com",
+    "oasis.caiso.com",
+    "oasis-bulk.caiso.com",
     "ferc.gov",
+    "data.ferc.gov",
     "eia.gov",
     "energy.ca.gov",
     "cpuc.ca.gov",
@@ -21,20 +25,16 @@ COMMON_AUTHORITIES = [
     "ladwp.com",
     "smud.org",
     "reuters.com",
-    "bloomberg.com",
-    "spglobal.com",
-    "woodmac.com",
-    "argusmedia.com",
-    "naturalgasintel.com",
 ]
 
 INTENT_DOMAINS = {
     "price": [
-        "caiso.com", "ferc.gov", "reuters.com", "bloomberg.com", "spglobal.com",
+        "caiso.com", "oasis.caiso.com", "oasis-bulk.caiso.com",
+        "ferc.gov", "data.ferc.gov", "reuters.com",
     ],
     "generation": [
         "caiso.com", "nrc.gov", "pge.com", "sce.com", "sdge.com",
-        "reuters.com", "bloomberg.com",
+        "reuters.com",
     ],
     "grid": [
         "caiso.com", "bpa.gov", "ferc.gov", "pge.com", "sce.com", "sdge.com",
@@ -42,11 +42,11 @@ INTENT_DOMAINS = {
     ],
     "west": [
         "caiso.com", "bpa.gov", "pacificorp.com", "ferc.gov", "eia.gov",
-        "reuters.com", "bloomberg.com",
+        "reuters.com",
     ],
     "gas": [
-        "socalgas.com", "pge.com", "eia.gov", "caiso.com", "spglobal.com",
-        "naturalgasintel.com", "reuters.com", "bloomberg.com",
+        "socalgas.com", "pge.com", "eia.gov", "caiso.com", "ferc.gov",
+        "reuters.com",
     ],
     "weather": [
         "noaa.gov", "weather.gov", "caiso.com", "bpa.gov",
@@ -119,6 +119,8 @@ def classify_intent(question: str) -> str:
         return "regulatory"
 
     return "general"
+
+
 def domains_for_intent(intent: str) -> list[str]:
     # Responses web_search supports up to 100 allowed domains.
     domains = INTENT_DOMAINS.get(intent, COMMON_AUTHORITIES)

@@ -42,7 +42,7 @@ class DdgsSearchProvider:
     provider_name: str = "ddgs_web"
     region: str = "us-en"
     safesearch: str = "moderate"
-    backend: str = "auto"
+    backend: str = "yahoo,brave,bing"
     search_function: SearchFunction = (
         default_text_search
     )

@@ -100,6 +100,31 @@ def test_unapproved_domain_is_rejected_before_fetch():
     assert called is False
 
 
+def test_licensed_provider_is_rejected_before_fetch():
+    provider = provider_by_id("woodmac_optional")
+    assert provider is not None
+
+    called = False
+
+    def fake_fetch(url, headers, timeout):
+        nonlocal called
+        called = True
+        return response(requested_url=url)
+
+    connector = OfficialWebConnector(http_fetch=fake_fetch)
+
+    with pytest.raises(
+        SourceUnauthorizedError,
+        match="entitled server-side delivery",
+    ):
+        connector.fetch(
+            provider=provider,
+            url="https://www.woodmac.com/report",
+        )
+
+    assert called is False
+
+
 def test_redirect_outside_approved_domain_is_rejected():
     provider = provider_by_id(
         "nrc_reactor_status"

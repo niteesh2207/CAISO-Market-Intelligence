@@ -1,0 +1,83 @@
+name: Python quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
+
+      - name: Compile Python
+        run: python -m compileall -q app.py market_intelligence scripts tests
+
+      - name: Run fatal-error lint checks
+        run: python -m ruff check app.py market_intelligence scripts tests
+
+      - name: Validate public release assets
+        run: |
+          python -m pytest -q tests/test_public_release_assets.py
+          node --check assets/preview.js
+          node --check static/app.js
+
+      - name: Scan tracked content for credentials
+        run: python scripts/validate_secret_scan.py
+
+      - name: Run tests
+        env:
+          OPENAI_API_KEY: ""
+        run: python -m pytest
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build container image
+        run: docker build --tag caiso-market-intelligence:ci .
+
+      - name: Start container
+        run: >-
+          docker run --detach --name caiso-market-smoke
+          --publish 127.0.0.1:8000:8000
+          --env OPENAI_API_KEY=""
+          caiso-market-intelligence:ci
+
+      - name: Verify health endpoint
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/health \
+              | python -c 'import json,sys; payload=json.load(sys.stdin); assert payload == {"status":"ok","service":"CAISO Market Intelligence","version":"4.0.0"}'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs caiso-market-smoke
+          exit 1
+
+      - name: Stop container
+        if: always()
+        run: docker rm --force caiso-market-smoke || true

@@ -73,8 +73,9 @@ def test_status_endpoint():
 
     assert payload["status"] == "ok"
     assert payload["service"] == (
-        "Energy Market Intelligence"
+        "CAISO Market Intelligence"
     )
+    assert payload["version"] == "4.0.0"
     assert payload[
         "universal_orchestrator"
     ] is True
@@ -125,6 +126,7 @@ def test_search_endpoint(monkeypatch):
             "question": (
                 "What is CAISO demand right now?"
             ),
+            "allow_web_fallback": False,
         },
     )
 
@@ -183,6 +185,7 @@ def test_missing_eia_cache_returns_503(
             "question": (
                 "What is CAISO demand right now?"
             ),
+            "allow_web_fallback": False,
         },
     )
 
@@ -211,6 +214,7 @@ def test_structured_executor_failure_returns_502(
             "question": (
                 "What is CAISO demand right now?"
             ),
+            "allow_web_fallback": False,
         },
     )
 
@@ -221,3 +225,89 @@ def test_structured_executor_failure_returns_502(
     assert payload["code"] == (
         "STRUCTURED_EXECUTOR_FAILURE"
     )
+
+
+def test_structured_failure_uses_public_research_when_enabled(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        application,
+        "_universal_orchestrator",
+        FailedStructuredExecutor(),
+    )
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    class PublicResult:
+        answer = "Current CAISO demand is reported by CAISO. [1]"
+        confidence = "medium"
+        limitations = ()
+        searched_at = "2026-08-06T18:00:00+00:00"
+        discovered_results = 3
+        retrieved_pages = 2
+        sources = ()
+
+    class PublicAgent:
+        def answer(self, question, *, allowed_domains):
+            assert question
+            assert allowed_domains == application.domains_for_intent(
+                application.classify_intent(question)
+            )
+            return PublicResult()
+
+    monkeypatch.setattr(
+        application,
+        "_public_web_agent",
+        PublicAgent(),
+    )
+
+    response = client.post(
+        "/api/search",
+        json={
+            "question": "What is CAISO demand right now?",
+            "allow_web_fallback": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "answered"
+    assert payload["used_web_fallback"] is True
+    assert payload["evidence"]["retrieved_pages"] == 2
+
+
+def test_unverified_current_research_is_not_labeled_answered(monkeypatch):
+    monkeypatch.setattr(
+        application,
+        "_universal_orchestrator",
+        FailedStructuredExecutor(),
+    )
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    class PublicResult:
+        answer = "I could not verify a current answer."
+        confidence = "insufficient"
+        limitations = ("Fresh primary evidence was unavailable.",)
+        searched_at = "2026-08-07T12:00:00+00:00"
+        discovered_results = 2
+        retrieved_pages = 0
+        sources = ()
+
+    class PublicAgent:
+        def answer(self, _question, *, allowed_domains):
+            assert allowed_domains
+            return PublicResult()
+
+    monkeypatch.setattr(application, "_public_web_agent", PublicAgent())
+
+    response = client.post(
+        "/api/search",
+        json={
+            "question": "What hydro is running at capacity now?",
+            "allow_web_fallback": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "research_required"
+    assert payload["confidence"] == "insufficient"
