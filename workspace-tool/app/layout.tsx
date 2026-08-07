@@ -6,8 +6,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://caiso-market-intelligence-workspace.mallavarapu-r.chatgpt.site"),
   title: "CAISO Market Intelligence Workspace",
-  description: "Ask CAISO and energy-market questions with source provenance, freshness controls, and explicit research guardrails.",
+  description: "Google-like CAISO and energy-market research with evidence tabs, source provenance, freshness controls, and entitlement-safe premium connectors.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
     title: "CAISO Market Intelligence Workspace",

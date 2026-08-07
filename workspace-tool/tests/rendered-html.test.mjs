@@ -17,8 +17,11 @@ test("server-renders the finished analyst workspace", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>CAISO Market Intelligence Workspace<\/title>/i);
-  assert.match(html, /Ask the market/);
+  assert.match(html, /Auditable answers/);
   assert.match(html, /Official sources first/);
+  assert.match(html, /Source scope/);
+  assert.match(html, /Research depth/);
+  assert.match(html, /Data connections/);
   assert.match(html, /Source authority is part of the answer/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
@@ -32,6 +35,19 @@ test("returns a source-grounded deterministic answer without credentials", async
   assert.match(payload.answer, /HE 13/);
   assert.ok(payload.sources.some((item) => item.url.includes("Solar-Curtailment-AI-generator")));
   assert.ok(payload.limitations.length > 0);
+  assert.ok(payload.followUps.length > 0);
+  assert.equal(payload.quality.authority, "Verified demo");
+  assert.match(payload.retrievedAt, /^20\d\d-/);
+});
+
+test("blocks unentitled premium scraping and explains the approved path", async () => {
+  const built = await worker();
+  const response = await built.fetch(new Request("http://localhost/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: "Give me premium gas-market intelligence", scope: "premium", depth: "deep" }) }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.match(payload.answer, /entitlement-gated/i);
+  assert.match(payload.summary, /will not scrape/i);
+  assert.ok(payload.limitations.some((item) => /No licensed provider/i.test(item)));
 });
 
 test("ships product metadata and the bespoke social card", async () => {
