@@ -15,6 +15,9 @@ The V4 API currently provides:
 - primary/supporting source roles, confidence, limitations, and evidence payloads;
 - clarification and hold states when mandatory evidence is incomplete;
 - a controlled web-research fallback for routes without a connected structured executor;
+- a credential-free public-web fallback that discovers approved sources,
+  retrieves public pages safely, and returns cited evidence when no
+  server-side OpenAI key is configured;
 - FastAPI status, capability, search, and API-documentation endpoints;
 - automated public-contract and unit tests.
 
@@ -63,6 +66,11 @@ curl -X POST http://127.0.0.1:8000/api/search \
 ```
 
 Set `allow_web_fallback` to `false` when the calling workflow requires a structured executor and should not accept web-research substitution.
+
+With fallback enabled, a structured source outage no longer terminates the
+request before research can run. The service logs the detailed executor error
+server-side, then uses model-backed web research when `OPENAI_API_KEY` is
+configured or deterministic source-grounded public research otherwise.
 
 ## Run locally
 

@@ -13,6 +13,13 @@ Use this checklist before placing the repository in LinkedIn Featured or announc
 
 ## Engineering evidence
 
+- Public search accepts a user question and completes structured-first or
+  public-web research with source provenance.
+- Structured exceptions fall through only when `allow_web_fallback=true`;
+  disabling fallback preserves the sanitized 502/503 contract.
+- Keyless fallback excludes licensed domains, rejects non-public fetch
+  targets, and never exposes connector exceptions to the browser.
+
 - [ ] CI is required on pull requests.
 - [ ] All tests pass on Python 3.12.
 - [ ] `allow_web_fallback=false` is covered by a contract test.

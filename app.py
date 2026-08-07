@@ -30,6 +30,9 @@ from market_intelligence.service.universal_orchestrator import (
     UniversalAnswerStatus,
     UniversalResearchOrchestrator,
 )
+from market_intelligence.research.public_web_agent import (
+    PublicWebResearchAgent,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -49,6 +52,7 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _universal_orchestrator = UniversalResearchOrchestrator()
+_public_web_agent = PublicWebResearchAgent()
 
 
 class AskRequest(BaseModel):
@@ -327,6 +331,8 @@ def energy_search(
 ) -> EnergySearchResponse:
     question = req.question.strip()
 
+    structured_failure: tuple[int, dict[str, Any]] | None = None
+
     try:
         result = _universal_orchestrator.answer(question)
 
@@ -335,9 +341,9 @@ def energy_search(
             "Structured operating-data cache was unavailable.",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=503,
-            detail={
+        structured_failure = (
+            503,
+            {
                 "code": "EIA_CACHE_NOT_AVAILABLE",
                 "message": (
                     "The required operating-data cache is "
@@ -347,26 +353,41 @@ def energy_search(
                     "Refresh the official EIA cache and retry."
                 ),
             },
-        ) from None
+        )
+        result = None
 
     except Exception:
         logger.exception("Structured energy executor failed.")
-        raise HTTPException(
-            status_code=502,
-            detail={
+        structured_failure = (
+            502,
+            {
                 "code": "STRUCTURED_EXECUTOR_FAILURE",
                 "message": (
                     "The structured research executor failed."
                 ),
             },
-        ) from None
+        )
+        result = None
 
-    structured = universal_answer_to_response(result)
+    if structured_failure and not req.allow_web_fallback:
+        status_code, detail = structured_failure
+        raise HTTPException(status_code=status_code, detail=detail)
+
+    structured = (
+        universal_answer_to_response(result)
+        if result is not None
+        else None
+    )
 
     if (
-        result.status != UniversalAnswerStatus.RESEARCH_REQUIRED
+        result is not None
+        and result.status not in {
+            UniversalAnswerStatus.RESEARCH_REQUIRED,
+            UniversalAnswerStatus.HELD,
+        }
         or not req.allow_web_fallback
     ):
+        assert structured is not None
         return structured
 
     intent = classify_intent(question)
@@ -375,66 +396,88 @@ def energy_search(
     now_pt = now.strftime("%Y-%m-%d %H:%M:%S %Z")
     broadened = False
 
-    try:
-        response = _search(
-            question=question,
-            intent=intent,
-            now_pt=now_pt,
-            allowed_domains=domains,
-            mode="standard",
-        )
-        answer, citations, sources = _extract_response_data(
-            response
-        )
+    answer = ""
+    citations: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    public_sources: list[EnergySourceResponse] = []
+    public_limitations: list[str] = []
+    fallback_evidence: dict[str, Any] = {}
 
-        if not answer or (
-            len(citations) < 1 and len(sources) < 2
-        ):
-            broadened = True
+    if os.getenv("OPENAI_API_KEY"):
+        try:
             response = _search(
                 question=question,
                 intent=intent,
                 now_pt=now_pt,
-                allowed_domains=None,
+                allowed_domains=domains,
                 mode="standard",
             )
             answer, citations, sources = _extract_response_data(
                 response
             )
 
-    except HTTPException:
-        raise
-
-    except Exception:
-        logger.exception("Controlled web fallback failed.")
-        return structured.model_copy(
-            update={
-                "limitations": [
-                    *structured.limitations,
-                    (
-                        "Controlled web fallback failed; the "
-                        "structured research status was preserved."
-                    ),
-                ]
-            }
-        )
+            if not answer or (len(citations) < 1 and len(sources) < 2):
+                broadened = True
+                response = _search(
+                    question=question,
+                    intent=intent,
+                    now_pt=now_pt,
+                    allowed_domains=None,
+                    mode="standard",
+                )
+                answer, citations, sources = _extract_response_data(response)
+        except Exception:
+            logger.exception("Model-backed web research failed; using public fallback.")
 
     if not answer:
-        return structured.model_copy(
-            update={
-                "limitations": [
-                    *structured.limitations,
-                    (
-                        "Controlled web research returned no "
-                        "releasable answer."
-                    ),
-                ]
+        try:
+            public_result = _public_web_agent.answer(
+                question,
+                allowed_domains=domains,
+            )
+            answer = public_result.answer
+            public_limitations.extend(public_result.limitations)
+            fallback_evidence = {
+                "searched_at_utc": public_result.searched_at,
+                "discovered_results": public_result.discovered_results,
+                "retrieved_pages": public_result.retrieved_pages,
+                "synthesis": "deterministic_source_grounded",
             }
+            public_sources = [
+                EnergySourceResponse(
+                    provider=source.provider,
+                    title=source.title,
+                    url=source.url,
+                    primary=source.primary,
+                    role="controlling" if source.primary else "supporting",
+                )
+                for source in public_result.sources
+            ]
+        except Exception:
+            logger.exception("Public web research fallback failed.")
+
+    if not answer:
+        if structured is not None:
+            return structured.model_copy(
+                update={
+                    "limitations": [
+                        *structured.limitations,
+                        "Controlled web research returned no releasable answer.",
+                    ]
+                }
+            )
+        status_code, detail = structured_failure or (
+            503,
+            {
+                "code": "RESEARCH_UNAVAILABLE",
+                "message": "Live public research is temporarily unavailable.",
+            },
         )
+        raise HTTPException(status_code=status_code, detail=detail)
 
     return EnergySearchResponse(
         status="answered",
-        domain=structured.domain,
+        domain=structured.domain if structured is not None else intent,
         answer=answer,
         explanation=(
             "No live structured executor was available for "
@@ -450,16 +493,22 @@ def energy_search(
                 else "authority_constrained_web"
             ),
             "searched_at_pt": now_pt,
+            **fallback_evidence,
         },
-        sources=_fallback_source_rows(citations, sources),
+        sources=(
+            _fallback_source_rows(citations, sources)
+            if citations or sources
+            else public_sources
+        ),
         limitations=[
             (
                 "Web-research fallback is supporting evidence, "
                 "not a substitute for a controlling structured "
                 "market-data feed."
-            )
+            ),
+            *public_limitations,
         ],
         clarification_options=[],
-        route=structured.route,
+        route=structured.route if structured is not None else None,
         used_web_fallback=True,
     )

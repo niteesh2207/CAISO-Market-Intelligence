@@ -95,6 +95,7 @@ def test_search_respects_disabled_web_fallback(monkeypatch) -> None:
 
 
 def test_search_marks_controlled_web_fallback(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(
         application,
         "_universal_orchestrator",
@@ -158,7 +159,10 @@ def test_structured_failure_does_not_expose_exception(
     with caplog.at_level(logging.ERROR):
         response = client.post(
             "/api/search",
-            json={"question": "What is CAISO demand?"},
+            json={
+                "question": "What is CAISO demand?",
+                "allow_web_fallback": False,
+            },
         )
 
     assert response.status_code == 502
